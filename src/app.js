@@ -20,14 +20,23 @@ app.get(
   },
 );
 
-app.get(/.*fly$/, (req, res) => {
+app.get(/.*fly$/, (req, res, next) => {
   console.log(req);
   console.log(req.query);
   const { id = null } = req.query;
-  res.send(`Hello World for ${req.url} and id is ${id}`);
+  // res.send("Hello");
+  try {
+    throw new Error("Issue in a function");
+  } catch (err) {
+    // res.send(`Hello World for ${req.url} and id is ${id}`);
+    next(err);
+  }
 });
 
-app.get("/:id", (req, res) => {
+app.use("/:id", (err, req, res, next) => {
+  if (err) {
+    res.status(500).send("Internal server error");
+  }
   // console.log(req);
   if (req.headers.token === "1234567890") {
     // next();
