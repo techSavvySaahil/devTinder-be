@@ -1,12 +1,40 @@
 const express = require("express");
 const authMiddleware = require("./middlewares/auth");
 const app = express();
+const connectDB = require("./config/database");
+const User = require("./models/user");
 
-app.listen(3000, () => {
-  console.log("Server is running on port 3000");
-});
+connectDB()
+  .then(() => {
+    console.log("DB connection established");
+    app.listen(3000, () => {
+      console.log("Server is running on port 3000");
+    });
+  })
+  .catch((err) => {
+    console.log("DB connection not established", err);
+  });
 
 app.use(authMiddleware);
+
+app.post("/signup", async (req, res) => {
+  const newUser = {
+    firstName: "Saahil",
+    lastName: "Madaan",
+    emailId: "saahil@gmail.com",
+    password: "123456789",
+    age: 29,
+    gender: "Male",
+  };
+  const user = new User(newUser);
+  try {
+    await user.save();
+    res.status(201).send("User added successfully");
+  } catch (err) {
+    console.log("Error happened", err);
+    res.status(500).send("Something went wrong");
+  }
+});
 
 app.get(
   /^\/ab(ou)?t$/,
