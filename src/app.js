@@ -37,7 +37,7 @@ app.post("/signup", async (req, res) => {
     res.status(201).send("User added successfully");
   } catch (err) {
     console.log("Error happened", err);
-    res.status(500).send("Something went wrong");
+    res.status(400).send("Couldn't sign up: " + err.message);
   }
 });
 
@@ -84,19 +84,37 @@ app.delete("/user", async (req, res) => {
   }
 });
 
+const ALLOWED_UPDATES = [
+  "firstName",
+  "lastName",
+  "about",
+  "age",
+  "password",
+  "userId",
+  "skills",
+];
+
 app.patch("/user", async (req, res) => {
   try {
     const { userId } = req.body;
+    const isUpdateNotAllowed = Object.keys(req.body).some((key) => {
+      console.log("Key!", key);
+      return !ALLOWED_UPDATES.includes(key);
+    });
+    if (isUpdateNotAllowed) throw new Error("Update not allowed");
+    if (req.body?.skills?.length > 10)
+      throw new Error("Max 10 skills can be added");
+
     const updatedUser = await User.findByIdAndUpdate(
       { _id: userId },
       req.body,
-      { returnDocument: "after" },
+      { returnDocument: "after", runValidators: true },
     );
     console.log("Updated user", updatedUser);
     res.status(200).send("User updated successfully", updatedUser);
   } catch (err) {
     console.log("Error", err);
-    res.status(404).send("User not found.");
+    res.status(400).send("UPDATE FAILED: " + err.message);
   }
 });
 
