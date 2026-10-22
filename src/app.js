@@ -3,6 +3,8 @@ const authMiddleware = require("./middlewares/auth");
 const app = express();
 const connectDB = require("./config/database");
 const User = require("./models/user");
+const Validations = require("./utils/validations");
+const bcrypt = require("bcrypt");
 
 connectDB()
   .then(() => {
@@ -19,25 +21,34 @@ app.use(authMiddleware);
 app.use(express.json());
 
 app.post("/signup", async (req, res) => {
-  const newUser = {
-    firstName: "Saahil",
-    lastName: "Madaan",
-    emailId: "saahil@gmail.com",
-    password: "123456789",
-    age: 29,
-    gender: "Male",
-  };
-  console.log("Check req", req);
-  console.log("Check body", req.body);
-  // const user = new User(newUser);
-  // data from request needs validation also
-  const user = new User(req.body);
   try {
+    Validations.signUpValidation(req);
+    const encryptedPwd = await bcrypt.hash(req.body.password, 10);
+    const user = new User({ ...req.body, password: encryptedPwd });
     await user.save();
     res.status(201).send("User added successfully");
   } catch (err) {
-    console.log("Error happened", err);
     res.status(400).send("Couldn't sign up: " + err.message);
+  }
+});
+
+app.post("/login", async (req, res) => {
+  try {
+    const { emailId, password } = req.body;
+    const user = await User.findOne({ emailId });
+
+    if (!user?.emailId) {
+      // throw new Error("User not found"); // Gives out info if the user is registered on the platform
+      throw new Error("Invalid credentials");
+    }
+    const isPasswordCorrect = await bcrypt.compare(password, user.password);
+    if (!isPasswordCorrect) {
+      // throw new Error("Password isn't correct"); // Gives out info if the user is registered on the platform
+      throw new Error("Invalid credentials");
+    }
+    res.status(200).send("Login successful");
+  } catch (err) {
+    res.status(401).send("Error: " + err.message);
   }
 });
 
@@ -55,20 +66,15 @@ app.get(
 
 app.get("/user", async (req, res) => {
   // const { emailId } = req.body;
-  console.log("Req params", req.params);
-  console.log("Req params", req.query);
   const { emailId } = req.query;
   const filter = emailId ? { emailId } : {};
-  console.log("Req emailId", emailId);
   try {
     const foundUser = await User.find(filter);
     if (foundUser.length === 0) {
       throw new Error("User not found");
     }
-    console.log("Found user", foundUser);
     res.status(200).send(foundUser);
   } catch (err) {
-    console.log("Some issue here", err);
     res.status(404).send("User not found");
   }
 });
@@ -77,7 +83,6 @@ app.delete("/user", async (req, res) => {
   try {
     const { userId } = req.body;
     const deletedUser = await User.findByIdAndDelete(userId);
-    console.log("Deleted user", deletedUser);
     res.status(200).send("User deleted successfully");
   } catch (err) {
     res.status(404).send("User not found.");
@@ -98,7 +103,6 @@ app.patch("/user", async (req, res) => {
   try {
     const { userId } = req.body;
     const isUpdateNotAllowed = Object.keys(req.body).some((key) => {
-      console.log("Key!", key);
       return !ALLOWED_UPDATES.includes(key);
     });
     if (isUpdateNotAllowed) throw new Error("Update not allowed");
@@ -110,17 +114,13 @@ app.patch("/user", async (req, res) => {
       req.body,
       { returnDocument: "after", runValidators: true },
     );
-    console.log("Updated user", updatedUser);
     res.status(200).send("User updated successfully", updatedUser);
   } catch (err) {
-    console.log("Error", err);
     res.status(400).send("UPDATE FAILED: " + err.message);
   }
 });
 
 app.get(/.*fly$/, (req, res, next) => {
-  console.log(req);
-  console.log(req.query);
   const { id = null } = req.query;
   // res.send("Hello");
   try {
@@ -135,9 +135,7 @@ app.use("/:id", (err, req, res, next) => {
   if (err) {
     res.status(500).send("Internal server error");
   }
-  // console.log(req);
   if (req.headers.token === "1234567890") {
-    // next();
     const { id } = req.params;
     res.send(`Hello World for ${req.url} and id is ${id}`);
   } else {
