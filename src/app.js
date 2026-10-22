@@ -16,6 +16,7 @@ connectDB()
   });
 
 app.use(authMiddleware);
+app.use(express.json());
 
 app.post("/signup", async (req, res) => {
   const newUser = {
@@ -26,7 +27,11 @@ app.post("/signup", async (req, res) => {
     age: 29,
     gender: "Male",
   };
-  const user = new User(newUser);
+  console.log("Check req", req);
+  console.log("Check body", req.body);
+  // const user = new User(newUser);
+  // data from request needs validation also
+  const user = new User(req.body);
   try {
     await user.save();
     res.status(201).send("User added successfully");
@@ -47,6 +52,53 @@ app.get(
     res.send("Hello World. This is the about page");
   },
 );
+
+app.get("/user", async (req, res) => {
+  // const { emailId } = req.body;
+  console.log("Req params", req.params);
+  console.log("Req params", req.query);
+  const { emailId } = req.query;
+  const filter = emailId ? { emailId } : {};
+  console.log("Req emailId", emailId);
+  try {
+    const foundUser = await User.find(filter);
+    if (foundUser.length === 0) {
+      throw new Error("User not found");
+    }
+    console.log("Found user", foundUser);
+    res.status(200).send(foundUser);
+  } catch (err) {
+    console.log("Some issue here", err);
+    res.status(404).send("User not found");
+  }
+});
+
+app.delete("/user", async (req, res) => {
+  try {
+    const { userId } = req.body;
+    const deletedUser = await User.findByIdAndDelete(userId);
+    console.log("Deleted user", deletedUser);
+    res.status(200).send("User deleted successfully");
+  } catch (err) {
+    res.status(404).send("User not found.");
+  }
+});
+
+app.patch("/user", async (req, res) => {
+  try {
+    const { userId } = req.body;
+    const updatedUser = await User.findByIdAndUpdate(
+      { _id: userId },
+      req.body,
+      { returnDocument: "after" },
+    );
+    console.log("Updated user", updatedUser);
+    res.status(200).send("User updated successfully", updatedUser);
+  } catch (err) {
+    console.log("Error", err);
+    res.status(404).send("User not found.");
+  }
+});
 
 app.get(/.*fly$/, (req, res, next) => {
   console.log(req);
