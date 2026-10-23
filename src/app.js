@@ -5,6 +5,8 @@ const connectDB = require("./config/database");
 const User = require("./models/user");
 const Validations = require("./utils/validations");
 const bcrypt = require("bcrypt");
+const cookieParser = require("cookie-parser");
+const jwt = require("jsonwebtoken");
 
 connectDB()
   .then(() => {
@@ -17,8 +19,13 @@ connectDB()
     console.log("DB connection not established", err);
   });
 
-app.use(authMiddleware);
+// app.use(authMiddleware);
 app.use(express.json());
+app.use(cookieParser());
+
+const createJwt = async (id) => {
+  return await jwt.sign({ id }, "SaahilDevTinder", { expiresIn: 60 });
+};
 
 app.post("/signup", async (req, res) => {
   try {
@@ -26,7 +33,12 @@ app.post("/signup", async (req, res) => {
     const encryptedPwd = await bcrypt.hash(req.body.password, 10);
     const user = new User({ ...req.body, password: encryptedPwd });
     await user.save();
-    res.status(201).send("User added successfully");
+    const jwToken = await createJwt();
+    console.log("jwtoken", jwToken);
+    res
+      .cookie("authToken", jwToken)
+      .status(201)
+      .send("User added successfully");
   } catch (err) {
     res.status(400).send("Couldn't sign up: " + err.message);
   }
@@ -46,9 +58,20 @@ app.post("/login", async (req, res) => {
       // throw new Error("Password isn't correct"); // Gives out info if the user is registered on the platform
       throw new Error("Invalid credentials");
     }
-    res.status(200).send("Login successful");
+
+    const jwToken = await createJwt(user._id);
+    res.cookie("authToken", jwToken).status(201).send("Login successful!");
   } catch (err) {
     res.status(401).send("Error: " + err.message);
+  }
+});
+
+app.get("/profile", authMiddleware, async (req, res) => {
+  try {
+    const { firstName, lastName } = req.user;
+    res.status(200).send("Hello " + firstName + " " + lastName);
+  } catch (err) {
+    res.status(400).send("ERROR: " + err.message);
   }
 });
 
@@ -128,18 +151,6 @@ app.get(/.*fly$/, (req, res, next) => {
   } catch (err) {
     // res.send(`Hello World for ${req.url} and id is ${id}`);
     next(err);
-  }
-});
-
-app.use("/:id", (err, req, res, next) => {
-  if (err) {
-    res.status(500).send("Internal server error");
-  }
-  if (req.headers.token === "1234567890") {
-    const { id } = req.params;
-    res.send(`Hello World for ${req.url} and id is ${id}`);
-  } else {
-    res.status(401).send("Unauthorized");
   }
 });
 
