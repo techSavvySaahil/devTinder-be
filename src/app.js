@@ -19,13 +19,8 @@ connectDB()
     console.log("DB connection not established", err);
   });
 
-// app.use(authMiddleware);
 app.use(express.json());
 app.use(cookieParser());
-
-const createJwt = async (id) => {
-  return await jwt.sign({ id }, "SaahilDevTinder", { expiresIn: 60 });
-};
 
 app.post("/signup", async (req, res) => {
   try {
@@ -33,7 +28,7 @@ app.post("/signup", async (req, res) => {
     const encryptedPwd = await bcrypt.hash(req.body.password, 10);
     const user = new User({ ...req.body, password: encryptedPwd });
     await user.save();
-    const jwToken = await createJwt();
+    const jwToken = await user.getJwt();
     console.log("jwtoken", jwToken);
     res
       .cookie("authToken", jwToken)
@@ -53,14 +48,17 @@ app.post("/login", async (req, res) => {
       // throw new Error("User not found"); // Gives out info if the user is registered on the platform
       throw new Error("Invalid credentials");
     }
-    const isPasswordCorrect = await bcrypt.compare(password, user.password);
+    const isPasswordCorrect = await user.validatePassword(password);
     if (!isPasswordCorrect) {
       // throw new Error("Password isn't correct"); // Gives out info if the user is registered on the platform
       throw new Error("Invalid credentials");
     }
 
-    const jwToken = await createJwt(user._id);
-    res.cookie("authToken", jwToken).status(201).send("Login successful!");
+    const jwToken = await user.getJwt();
+    res
+      .cookie("authToken", jwToken, { maxAge: 20000 })
+      .status(201)
+      .send("Login successful!");
   } catch (err) {
     res.status(401).send("Error: " + err.message);
   }
@@ -141,29 +139,6 @@ app.patch("/user", async (req, res) => {
   } catch (err) {
     res.status(400).send("UPDATE FAILED: " + err.message);
   }
-});
-
-app.get(/.*fly$/, (req, res, next) => {
-  const { id = null } = req.query;
-  // res.send("Hello");
-  try {
-    throw new Error("Issue in a function");
-  } catch (err) {
-    // res.send(`Hello World for ${req.url} and id is ${id}`);
-    next(err);
-  }
-});
-
-app.post("/about", (req, res) => {
-  res.send("Data submitted successfully via POST request");
-});
-
-app.put("/about", (req, res) => {
-  res.send("Data updated successfully via PUT request");
-});
-
-app.delete("/about", (req, res) => {
-  res.send("Data deleted successfully via DELETE request");
 });
 
 console.log("Hello World");
