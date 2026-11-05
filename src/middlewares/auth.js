@@ -11,7 +11,10 @@ const authMiddleware = async (req, res, next) => {
     if (user.emailId) next();
     else throw new Error("Session expired. Please login again.");
   } catch (err) {
-    res.status(401).send("Session expired. Please login again");
+    res
+      .clearCookie("authToken")
+      .status(401)
+      .send("Session expired. Please login again");
   }
 };
 

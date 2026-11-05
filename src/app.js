@@ -1,12 +1,8 @@
 const express = require("express");
-const authMiddleware = require("./middlewares/auth");
 const app = express();
 const connectDB = require("./config/database");
 const User = require("./models/user");
-const Validations = require("./utils/validations");
-const bcrypt = require("bcrypt");
 const cookieParser = require("cookie-parser");
-const jwt = require("jsonwebtoken");
 
 connectDB()
   .then(() => {
@@ -22,56 +18,12 @@ connectDB()
 app.use(express.json());
 app.use(cookieParser());
 
-app.post("/signup", async (req, res) => {
-  try {
-    Validations.signUpValidation(req);
-    const encryptedPwd = await bcrypt.hash(req.body.password, 10);
-    const user = new User({ ...req.body, password: encryptedPwd });
-    await user.save();
-    const jwToken = await user.getJwt();
-    console.log("jwtoken", jwToken);
-    res
-      .cookie("authToken", jwToken)
-      .status(201)
-      .send("User added successfully");
-  } catch (err) {
-    res.status(400).send("Couldn't sign up: " + err.message);
-  }
-});
+const authRouter = require("./routes/auth");
+const profileRouter = require("./routes/profile");
+// const authRouter = require("./routes/auth");
 
-app.post("/login", async (req, res) => {
-  try {
-    const { emailId, password } = req.body;
-    const user = await User.findOne({ emailId });
-
-    if (!user?.emailId) {
-      // throw new Error("User not found"); // Gives out info if the user is registered on the platform
-      throw new Error("Invalid credentials");
-    }
-    const isPasswordCorrect = await user.validatePassword(password);
-    if (!isPasswordCorrect) {
-      // throw new Error("Password isn't correct"); // Gives out info if the user is registered on the platform
-      throw new Error("Invalid credentials");
-    }
-
-    const jwToken = await user.getJwt();
-    res
-      .cookie("authToken", jwToken, { maxAge: 20000 })
-      .status(201)
-      .send("Login successful!");
-  } catch (err) {
-    res.status(401).send("Error: " + err.message);
-  }
-});
-
-app.get("/profile", authMiddleware, async (req, res) => {
-  try {
-    const { firstName, lastName } = req.user;
-    res.status(200).send("Hello " + firstName + " " + lastName);
-  } catch (err) {
-    res.status(400).send("ERROR: " + err.message);
-  }
-});
+app.use("/", authRouter);
+app.use("/", profileRouter);
 
 app.get(
   /^\/ab(ou)?t$/,
